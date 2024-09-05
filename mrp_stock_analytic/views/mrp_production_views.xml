@@ -17,7 +17,6 @@
         <field name="arch" type="xml">
             <field name="analytic_distribution" position="attributes">
                 <attribute name="readonly">state in ('done', 'cancel')</attribute>
-                <attribute name="optional">show</attribute>
             </field>
         </field>
     </record>
