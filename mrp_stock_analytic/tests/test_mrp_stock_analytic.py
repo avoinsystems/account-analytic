@@ -3,10 +3,10 @@
 
 from odoo.tests import Form
 
-from odoo.addons.stock_analytic.tests.test_stock_picking import TestStockPicking
+from odoo.addons.stock_analytic.tests.test_stock_picking import CommonStockPicking
 
 
-class TestMrpStockAnalytic(TestStockPicking):
+class TestMrpStockAnalytic(CommonStockPicking):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -115,7 +115,7 @@ class TestMrpStockAnalytic(TestStockPicking):
             active_ids=open_record.ids,
             active_id=open_record.id,
         )
-        target = open_record.env[action_res["res_model"]].with_context(context)
+        target = open_record.env[action_res["res_model"]].with_context(**context)
         return Form(target)
 
     def test_analytic_propagation_backorder(self):
@@ -128,8 +128,8 @@ class TestMrpStockAnalytic(TestStockPicking):
         self.assertTrue(quantity_issues)
         backorder_action = production.button_mark_done()
         self.assertEqual(
-            backorder_action,
-            production._action_generate_backorder_wizard(quantity_issues),
+            backorder_action.get("res_model"),
+            "mrp.production.backorder",
         )
         backorder_wizard = self._action_wizard_form(production, backorder_action)
         backorder_wizard.save().action_backorder()
@@ -146,3 +146,38 @@ class TestMrpStockAnalytic(TestStockPicking):
             backorder.move_raw_ids.analytic_distribution,
             backorder.analytic_distribution,
         )
+
+    def _check_analytic_when_adding_new_line(self):
+        self.production.analytic_distribution = self.analytic_distribution
+        self.product_C = self.env["product.product"].create(
+            {
+                "name": "Product C",
+                "type": "product",
+                "categ_id": self.product_categ.id,
+                "standard_price": 50.0,
+            }
+        )
+        self.assertGreater(len(self.production.move_raw_ids), 0)
+        edit_production = Form(self.production)
+        with edit_production.move_raw_ids.new() as new_raw:
+            new_raw.product_id = self.product_C
+        production = edit_production.save()
+        for raw_line in production.move_raw_ids:
+            with self.subTest(
+                raw_move=raw_line.display_name,
+                raw_product=raw_line.product_id.display_name,
+            ):
+                self.assertEqual(
+                    raw_line.analytic_distribution,
+                    self.analytic_distribution,
+                    msg="When a new raw line is added to a draft production, "
+                    "it should get the analytic distribution of the "
+                    "production",
+                )
+
+    def test_analytic_added_to_new_lines_on_draft(self):
+        self._check_analytic_when_adding_new_line()
+
+    def test_analytic_added_to_new_lines_on_confirmed(self):
+        self.production.action_confirm()
+        self._check_analytic_when_adding_new_line()
