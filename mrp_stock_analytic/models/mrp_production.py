@@ -6,8 +6,7 @@ from odoo import fields, models
 
 
 class MrpProduction(models.Model):
-    _name = "mrp.production"
-    _inherit = ["mrp.production", "analytic.mixin"]
+    _inherit = "mrp.production"
 
     analytic_distribution = fields.Json(
         inverse="_inverse_analytic_distribution",
